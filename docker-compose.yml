@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+#  api:
+#    container_name: exchange_api
+#    build:
+#      context: ./api
+#      dockerfile: cmd/app/Dockerfile
+#    ports:
+#      - "8080:8080"
+#    networks:
+#      - net
+#    volumes:
+#      - ./:/app
+
+  api-air:
+    image: cosmtrek/air
+    working_dir: /api
+    ports:
+      - "8080:8080"
+    networks:
+      - net
+    volumes:
+      - ./api:/api
+
+
+  air-exchanger:
+    image: cosmtrek/air
+    working_dir: /exchanger
+    ports:
+      - "5001:5001"
+    networks:
+      - net
+    depends_on:
+      - redis
+    links:
+      - redis
+    volumes:
+      - ./exchanger:/exchanger
+
+  air-mailer:
+    image: cosmtrek/air
+    working_dir: /mailer
+    ports:
+      - "5002:5002"
+    networks:
+      - net
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5433
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=my_database
+      - REDIS_HOST=exchange_redis:6379
+    depends_on:
+      - db
+    volumes:
+      - ./mailer:/mailer
+
+#  mailer:
+#    container_name: exchange_mailer
+#    build:
+#      context: .
+#      dockerfile: mailer/cmd/app/Dockerfile
+#    ports:
+#      - "5001:5001"
+#    environment:
+#      - POSTGRES_HOST=db
+#      - POSTGRES_PORT=5433
+#      - POSTGRES_USER=postgres
+#      - POSTGRES_PASSWORD=password
+#      - POSTGRES_DB=my_database
+#      - REDIS_HOST=exchange_redis:6379
+#    depends_on:
+#      - db
+#    networks:
+#      - net
+#
+#  exchanger:
+#    container_name: exchange_exchanger
+#    build:
+#      context: .
+#      dockerfile: exchanger/cmd/app/Dockerfile
+#    ports:
+#      - "5002:5002"
+#    depends_on:
+#      - redis
+#    links:
+#      - redis
+#    networks:
+#      - net
+#
+  redis:
+    image: redis:7.0.0-alpine
+    container_name: exchange_redis
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    restart: always
+    volumes:
+      - ./cache:/data
+    command: redis-server
+    networks:
+      - net
+
+  db:
+    container_name: exchange_db
+    image: postgres:latest
+    ports:
+      - "5433:5433"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=my_database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: -p 5433
+    networks:
+      - net
+#
+volumes:
+  postgres_data:
+  cache:
+    driver: local
+
+networks:
+  net:
+    name: staff-net
+    driver: bridge
